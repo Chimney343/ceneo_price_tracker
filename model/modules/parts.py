@@ -12,4 +12,3 @@ class Part:
 
     def __repr__(self):
         return repr(f"{self.name} / @ {self.shop} / @ {self.price}")
-

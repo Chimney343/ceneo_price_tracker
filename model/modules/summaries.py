@@ -1,8 +1,13 @@
+from functools import reduce
+
+import pandas as pd
 import requests
-from model.modules.baskets import Basket
-from model.modules.parts import Part
 import validators
 from bs4 import BeautifulSoup
+
+from model.modules.baskets import Basket
+from model.modules.parts import Part
+
 
 class CeneoSummaryPage:
     def __init__(self, url):
@@ -26,16 +31,6 @@ class CeneoSummaryPage:
                 img = tag.find('img', alt=True)
                 self.products.add(img['alt'])
 
-    def _make_baskets(self):
-        basket_names = set()
-        for tag in self.page.find_all('td'):
-            # Basket names are hidden under every tag that is different to 'input'.
-            if tag.find('input'):
-                continue
-            basket_names.add(tag['class'][0])
-
-        self.baskets = {basket_name: Basket(name=basket_name) for basket_name in basket_names}
-
     def _slice_product_basket_tags(self):
         tags = self.page.find_all("td")
         # Make a lookup with products as keys and a list of their basket tags as values.
@@ -44,7 +39,7 @@ class CeneoSummaryPage:
 
         # Slice the tag list into n_products chunks.
         for i in range(0, len(tags), n_products):
-            product_tags = tags[i: i + n_products]
+            product_tags = tags[i : i + n_products]
             # First tag always contains product names.
             product_name = product_tags[0].find("img", alt=True)["alt"]
             # Remaining tags always contain product basket offers.
@@ -106,15 +101,3 @@ class CeneoSummaryPage:
     def display_baskets(self):
         for basket in self.baskets.values():
             basket.show()
-
-
-
-
-
-
-
-
-
-
-
-

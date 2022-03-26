@@ -1,5 +1,7 @@
-from model.modules.parts import Part
 import pandas as pd
+
+from model.modules.parts import Part
+
 
 class Basket:
     def __init__(self, name):
@@ -19,11 +21,3 @@ class Basket:
         print(f"{self.name} basket:")
         for part in self.parts:
             print('\t', part)
-
-
-
-
-
-
-
-
