@@ -4,19 +4,22 @@ import pandas as pd
 import requests
 import validators
 from bs4 import BeautifulSoup
+from datetime import datetime
+from typing import Union
 
 from model.modules.baskets import Basket
 from model.modules.parts import Part
 
 
-class CeneoSummaryPage:
-    def __init__(self, url):
+class CeneoSummaryPageReader:
+    def __init__(self, url: str):
         assert validators.url(url), "Invalid url."
+        self.timestamp = None
         self.url = url
         self.baskets = {}
-        self.products = set()
+        self.unique_parts = set()
 
-    def _get_response(self, url):
+    def _get_response(self, url: str):
         """
         Gets HTTP response from url.
         :param url:
@@ -40,7 +43,7 @@ class CeneoSummaryPage:
             # Product name is hidden under 'input' and further under 'img' tag.
             if tag.find('input'):
                 img = tag.find('img', alt=True)
-                self.products.add(img['alt'])
+                self.unique_parts.add(img['alt'])
 
     def _slice_product_basket_tags(self):
         """
@@ -48,8 +51,8 @@ class CeneoSummaryPage:
         that product.
         """
         tags = self.page.find_all("td")
-        product_basket_tags_lookup = dict.fromkeys(self.products)
-        n_products = len(self.products)
+        product_basket_tags_lookup = dict.fromkeys(self.unique_parts)
+        n_products = len(self.unique_parts)
 
         # Slice the tag list into n_products chunks.
         for i in range(0, len(tags), n_products):
