@@ -1,13 +1,15 @@
 import requests
 from model.modules.baskets import Basket
 from model.modules.parts import Part
+import validators
 from bs4 import BeautifulSoup
 
 class CeneoSummaryPage:
-    products = set()
-    baskets= {}
-    def __init__(self):
-        self.url = None
+    def __init__(self, url):
+        assert validators.url(url), "Invalid url."
+        self.url = url
+        self.baskets = {}
+        self.products = set()
 
     def _get_response(self):
         self.response = requests.get(self.url)
