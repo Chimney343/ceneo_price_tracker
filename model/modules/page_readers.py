@@ -160,6 +160,7 @@ class CeneoSummaryPage:
             dfs.append(basket.df)
 
         df = reduce(lambda left, right: pd.merge(left, right, left_index=True, right_index=True, how='outer'), dfs)
+        df = self._enhance_df(df)
         self.df = df
 
     def make(self):
@@ -167,6 +168,8 @@ class CeneoSummaryPage:
         Main flow; parses the page and products, initializes and fills the baskets, makes the result dataframe.
         """
         self._parse_page(url=self.url)
+        # Timestamp is set immediately following the URL parsing.
+        self.timestamp = datetime.now()
         self._parse_products()
         self._slice_product_basket_tags()
         self._make_baskets()
