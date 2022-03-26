@@ -106,6 +106,50 @@ class CeneoSummaryPage:
                     # Add part to current basket.
                     self.baskets[basket_name].add_part(part)
 
+    def find_most_expensive_offer(self, part: str, return_type: Union[str, float]):
+        """
+        Find the most expensive offer and either return it's shop or it's value.
+        :param part:
+        :param return_type:
+        :return:
+        """
+        price_to_shop_lookup = {}
+        for basket in self.baskets.values():
+            for basket_part in basket.parts:
+                if basket_part.name == part:
+                    price_to_shop_lookup[basket_part.price] = basket_part.shop
+
+        if return_type == 'shop':
+            return price_to_shop_lookup[max(price_to_shop_lookup.keys())]
+        elif return_type == 'price':
+            return max(price_to_shop_lookup.keys())
+
+    def find_cheapest_offer(self, part: str, return_type: Union[str, float]):
+        """
+        Find the cheapest offer and either return it's shop or it's value.
+        :param part:
+        :param return_type:
+        :return:
+        """
+        price_to_shop_lookup = {}
+        for basket in self.baskets.values():
+            for basket_part in basket.parts:
+                if basket_part.name == part:
+                    price_to_shop_lookup[basket_part.price] = basket_part.shop
+
+        if return_type == 'shop':
+            return price_to_shop_lookup[min(price_to_shop_lookup.keys())]
+        elif return_type == 'price':
+            return min(price_to_shop_lookup.keys())
+
+    def _enhance_df(self, df):
+        df['cheapest-shop'] = df.index.to_series().apply(self.find_cheapest_offer, return_type='shop')
+        df['most-expensive-shop'] = df.index.to_series().apply(self.find_most_expensive_offer, return_type='shop')
+        df['cheapest-offer'] = df.index.to_series().apply(self.find_cheapest_offer, return_type='price')
+        df['most-expensive-offer'] = df.index.to_series().apply(self.find_most_expensive_offer, return_type='price')
+        df['timestamp'] = self.timestamp
+        return df
+
     def _make_df(self):
         """
         Make a dataframe from existing baskets.
