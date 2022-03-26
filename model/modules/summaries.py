@@ -86,6 +86,23 @@ class CeneoSummaryPage:
                     # Add part to current basket.
                     self.baskets[basket_name].add_part(part)
 
+    def _make_df(self):
+        dfs = []
+        for basket in self.baskets.values():
+            basket.make_df()
+            dfs.append(basket.df)
+
+        df = reduce(lambda left, right: pd.merge(left, right, left_index=True, right_index=True, how='outer'), dfs)
+        self.df = df
+
+    def make(self):
+        self._parse_page(url=self.url)
+        self._parse_products()
+        self._slice_product_basket_tags()
+        self._make_baskets()
+        self._fill_baskets()
+        self._make_df()
+
     def display_baskets(self):
         for basket in self.baskets.values():
             basket.show()
