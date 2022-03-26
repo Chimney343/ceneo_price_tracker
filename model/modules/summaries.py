@@ -17,14 +17,25 @@ class CeneoSummaryPage:
         self.products = set()
 
     def _get_response(self, url):
+        """
+        Gets HTTP response from url.
+        :param url:
+        """
         self.response = requests.get(self.url)
 
     def _parse_page(self, url):
+        """
+        Parses a webpage with BeatifoulSoup.
+        :param url:
+        """
         self._get_response(url)
         if self.response.status_code == 200:
             self.page = BeautifulSoup(self.response.text, "html.parser")
 
     def _parse_products(self):
+        """
+        Parses unique products displayed in a Ceneo summary webpage.
+        """
         for tag in self.page.find_all('td'):
             # Product name is hidden under 'input' and further under 'img' tag.
             if tag.find('input'):
@@ -32,8 +43,11 @@ class CeneoSummaryPage:
                 self.products.add(img['alt'])
 
     def _slice_product_basket_tags(self):
+        """
+        Slices summary tags to a lookup where each unique product is a key and values are HTML `basket` tags relevant to
+        that product.
+        """
         tags = self.page.find_all("td")
-        # Make a lookup with products as keys and a list of their basket tags as values.
         product_basket_tags_lookup = dict.fromkeys(self.products)
         n_products = len(self.products)
 
@@ -48,6 +62,9 @@ class CeneoSummaryPage:
         self.product_basket_tags_lookup = product_basket_tags_lookup
 
     def _make_baskets(self):
+        """
+        Makes baskets.Basket objects relevant to current Ceneo summary.
+        """
         basket_names = set()
         for tag in self.page.find_all('td'):
             # Basket names are hidden under every tag that is different to 'input'.
@@ -58,12 +75,20 @@ class CeneoSummaryPage:
         self.baskets = {basket_name: Basket(name=basket_name) for basket_name in basket_names}
 
     def _read_basket_tag(self, basket_tag):
+        """
+        Read Ceneo `basket` HTML tag.
+        :param basket_tag:
+        :return:
+        """
         basket_name = basket_tag["class"][0]
         basket_offer_keys = [span["class"][0] for span in basket_tag.find_all("span")]
         basket_offer_values = [span.text for span in basket_tag.find_all("span")]
         return basket_name, basket_offer_keys, basket_offer_values
 
     def _fill_baskets(self):
+        """
+        Adds products to baskets through analyzing basket tags.
+        """
         for product, basket_tag_list in self.product_basket_tags_lookup.items():
             for basket_tag in basket_tag_list:
                 basket_name, basket_offer_keys, basket_offer_values = self._read_basket_tag(basket_tag)
@@ -82,6 +107,9 @@ class CeneoSummaryPage:
                     self.baskets[basket_name].add_part(part)
 
     def _make_df(self):
+        """
+        Make a dataframe from existing baskets.
+        """
         dfs = []
         for basket in self.baskets.values():
             basket.make_df()
@@ -91,6 +119,9 @@ class CeneoSummaryPage:
         self.df = df
 
     def make(self):
+        """
+        Main flow; parses the page and products, initializes and fills the baskets, makes the result dataframe.
+        """
         self._parse_page(url=self.url)
         self._parse_products()
         self._slice_product_basket_tags()
