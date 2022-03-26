@@ -11,16 +11,15 @@ class CeneoSummaryPage:
         self.baskets = {}
         self.products = set()
 
-    def _get_response(self):
+    def _get_response(self, url):
         self.response = requests.get(self.url)
 
-    def parse_page(self, url):
-        self.url = url
-        self._get_response()
+    def _parse_page(self, url):
+        self._get_response(url)
         if self.response.status_code == 200:
             self.page = BeautifulSoup(self.response.text, "html.parser")
 
-    def _read_products(self):
+    def _parse_products(self):
         for tag in self.page.find_all('td'):
             # Product name is hidden under 'input' and further under 'img' tag.
             if tag.find('input'):
@@ -53,16 +52,23 @@ class CeneoSummaryPage:
 
         self.product_basket_tags_lookup = product_basket_tags_lookup
 
+    def _make_baskets(self):
+        basket_names = set()
+        for tag in self.page.find_all('td'):
+            # Basket names are hidden under every tag that is different to 'input'.
+            if tag.find('input'):
+                continue
+            basket_names.add(tag['class'][0])
+
+        self.baskets = {basket_name: Basket(name=basket_name) for basket_name in basket_names}
+
     def _read_basket_tag(self, basket_tag):
         basket_name = basket_tag["class"][0]
         basket_offer_keys = [span["class"][0] for span in basket_tag.find_all("span")]
         basket_offer_values = [span.text for span in basket_tag.find_all("span")]
         return basket_name, basket_offer_keys, basket_offer_values
 
-    def fill_baskets(self):
-        self._read_products()
-        self._slice_product_basket_tags()
-        self._make_baskets()
+    def _fill_baskets(self):
         for product, basket_tag_list in self.product_basket_tags_lookup.items():
             for basket_tag in basket_tag_list:
                 basket_name, basket_offer_keys, basket_offer_values = self._read_basket_tag(basket_tag)
