@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import List, Union
+from datetime import datetime
 
 import pandas as pd
 from tqdm.autonotebook import tqdm
@@ -13,7 +14,8 @@ class CeneoScraper:
     ):
         self.ceneo_summaries = ceneo_summaries
         self.dfs = []
-        self.output_folder = output_folder
+        self.output_folder = Path(output_folder)
+        self.df = None
 
     def read_summary(self, url):
         summary = CeneoSummaryPageReader(url=url)
@@ -26,6 +28,12 @@ class CeneoScraper:
     def _make_result_df(self):
         result = pd.concat(self.dfs).sort_values(by="timestamp")
         return result
+
+    def save_result_df(self):
+        path = Path(self.output_folder)
+        path.mkdir(parents=True, exist_ok=True)
+        filename = f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.pkl"
+        self.df.to_pickle(path / filename)
 
     def run(self):
         if isinstance(self.ceneo_summaries, List):
@@ -41,3 +49,5 @@ class CeneoScraper:
             self.dfs.append(result)
 
         self.df = self._make_result_df()
+        self.save_result_df()
+
