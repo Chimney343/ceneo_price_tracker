@@ -52,17 +52,7 @@ class CeneoSummaryPageReader:
         }
         return part_name_to_id, part_id_to_name
 
-        # Slice the tag list into n_products chunks.
-        for i in range(0, len(tags), n_products):
-            product_tags = tags[i : i + n_products]
-            # First tag always contains product names.
-            product_name = product_tags[0].find("img", alt=True)["alt"]
-            # Remaining tags always contain product basket offers.
-            product_basket_tags_lookup[product_name] = product_tags[1:]
-
-        self.product_basket_tags_lookup = product_basket_tags_lookup
-
-    def _make_baskets(self):
+    def make_baskets(self):
         """
         Makes baskets.Basket objects relevant to current Ceneo summary.
         """
