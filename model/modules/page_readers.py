@@ -101,26 +101,39 @@ class CeneoSummaryPageReader:
             basket_span_tag_values,
         )
 
-    def _fill_baskets(self):
+    def fill_baskets(self):
         """
         Adds products to baskets through analyzing basket tags.
         """
-        for product, basket_tag_list in self.product_basket_tags_lookup.items():
-            for basket_tag in basket_tag_list:
-                basket_name, basket_offer_keys, basket_offer_values = self._read_basket_tag(basket_tag)
-                if basket_offer_keys:
-                    part_data = dict(zip(basket_offer_keys, basket_offer_values))
-                    part = Part(
-                        name=product,
-                        shop=part_data["offer-shop-domain"],
-                        price_format=part_data["price-format"],
-                        price=part_data["price"],
-                        value=part_data["value"],
-                        penny=part_data["penny"],
-                    )
-
-                    # Add part to current basket.
-                    self.baskets[basket_name].add_part(part)
+        tags = self.page.find_all("td")
+        # Filter basket tags from all tags.
+        basket_tags = [tag for tag in tags if not tag.find("input")]
+        for tag in basket_tags:
+            (
+                basket_name,
+                basket_part_id,
+                basket_part_brand,
+                basket_part_category,
+                basket_span_tag_keys,
+                basket_span_tag_values,
+            ) = self.read_basket_tag(tag)
+            if basket_span_tag_keys:
+                # Collate information of part included in the basket tag.
+                part_name = self.part_id_to_name.get(basket_part_id)
+                part_data = dict(zip(basket_span_tag_keys, basket_span_tag_values))
+                part = Part(
+                    name=part_name,
+                    price=part_data["price"],
+                    brand=basket_part_brand,
+                    category=basket_part_category,
+                    part_id=basket_part_id,
+                    shop=part_data["offer-shop-domain"],
+                    price_format=part_data["price-format"],
+                    value=part_data["value"],
+                    penny=part_data["penny"],
+                )
+                # Add part to its relevant basket.
+                self.baskets[basket_name].add_part(part)
 
     def find_most_expensive_offer(self, part: str, return_type: Union[str, float]):
         """
