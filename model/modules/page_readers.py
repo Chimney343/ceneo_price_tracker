@@ -1,11 +1,11 @@
+from datetime import datetime
 from functools import reduce
 
+import bs4
 import pandas as pd
 import requests
 import validators
 from bs4 import BeautifulSoup
-from datetime import datetime
-from typing import Union
 
 from model.modules.baskets import Basket
 from model.modules.parts import Part
@@ -27,7 +27,7 @@ class CeneoSummaryPageReader:
         """
         self.response = requests.get(self.url)
 
-    def _parse_page(self, url):
+    def parse_page(self, url):
         """
         Parses a webpage with BeatifoulSoup.
         :param url:
@@ -35,6 +35,7 @@ class CeneoSummaryPageReader:
         self._get_response(url)
         if self.response.status_code == 200:
             self.page = BeautifulSoup(self.response.text, "html.parser")
+            self.title = self.page.title.text.split("-")[0].strip()
 
     def parse_products(self):
         """
@@ -57,19 +58,19 @@ class CeneoSummaryPageReader:
         Makes baskets.Basket objects relevant to current Ceneo summary.
         """
         basket_names = set()
-        for tag in self.page.find_all('td'):
+        for tag in self.page.find_all("td"):
             # Basket names are hidden under every tag that is different to 'input'.
-            if tag.find('input'):
+            if tag.find("input"):
                 continue
-            basket_names.add(tag['class'][0])
+            basket_names.add(tag["class"][0])
 
-        self.baskets = {basket_name: Basket(name=basket_name) for basket_name in basket_names}
+        return {basket_name: Basket(name=basket_name) for basket_name in basket_names}
 
-    def _read_basket_tag(self, basket_tag):
+    def read_basket_tag(self, basket_tag: bs4.element.Tag) -> tuple:
         """
-        Read Ceneo `basket` HTML tag.
-        :param basket_tag:
-        :return:
+        Read Ceneo `basket` HTML tag
+        :rtype: Tuple with basket name, id of part in basket, brand of part in basket, category of part in basket and a collection of keys/values from `span` tag.
+
         """
         basket_name = basket_tag["class"][0]
         try:
@@ -135,7 +136,7 @@ class CeneoSummaryPageReader:
                 # Add part to its relevant basket.
                 self.baskets[basket_name].add_part(part)
 
-    def find_most_expensive_offer(self, part: str, return_type: Union[str, float]):
+    def find_most_expensive_offer(self, part: str, return_type: str):
         """
         Find the most expensive offer and either return it's shop or it's value.
         :param part:
@@ -148,12 +149,12 @@ class CeneoSummaryPageReader:
                 if basket_part.name == part:
                     price_to_shop_lookup[basket_part.price] = basket_part.shop
 
-        if return_type == 'shop':
+        if return_type == "shop":
             return price_to_shop_lookup[max(price_to_shop_lookup.keys())]
-        elif return_type == 'price':
+        elif return_type == "price":
             return max(price_to_shop_lookup.keys())
 
-    def find_cheapest_offer(self, part: str, return_type: Union[str, float]):
+    def find_cheapest_offer(self, part: str, return_type: str):
         """
         Find the cheapest offer and either return it's shop or it's value.
         :param part:
@@ -166,17 +167,31 @@ class CeneoSummaryPageReader:
                 if basket_part.name == part:
                     price_to_shop_lookup[basket_part.price] = basket_part.shop
 
-        if return_type == 'shop':
+        if return_type == "shop":
             return price_to_shop_lookup[min(price_to_shop_lookup.keys())]
-        elif return_type == 'price':
+        elif return_type == "price":
             return min(price_to_shop_lookup.keys())
 
     def _enhance_df(self, df):
-        df['cheapest-shop'] = df.index.to_series().apply(self.find_cheapest_offer, return_type='shop')
-        df['most-expensive-shop'] = df.index.to_series().apply(self.find_most_expensive_offer, return_type='shop')
-        df['cheapest-offer'] = df.index.to_series().apply(self.find_cheapest_offer, return_type='price')
-        df['most-expensive-offer'] = df.index.to_series().apply(self.find_most_expensive_offer, return_type='price')
-        df['timestamp'] = self.timestamp
+        """
+        Result dataframe feature engineering.
+        :param df:
+        :return:
+        """
+        df["cheapest-shop"] = df.index.to_series().apply(
+            self.find_cheapest_offer, return_type="shop"
+        )
+        df["most-expensive-shop"] = df.index.to_series().apply(
+            self.find_most_expensive_offer, return_type="shop"
+        )
+        df["cheapest-offer"] = df.index.to_series().apply(
+            self.find_cheapest_offer, return_type="price"
+        )
+        df["most-expensive-offer"] = df.index.to_series().apply(
+            self.find_most_expensive_offer, return_type="price"
+        )
+        df["timestamp"] = self.timestamp
+        df["title"] = self.title
         return df
 
     def make_df(self, baskets=None) -> pd.DataFrame:
@@ -203,20 +218,22 @@ class CeneoSummaryPageReader:
             .set_index("index")
         )
         df = self._enhance_df(df)
-        self.df = df
+        return df
 
-    def make(self):
+    def read_summary(self):
         """
         Main flow; parses the page and products, initializes and fills the baskets, makes the result dataframe.
         """
-        self._parse_page(url=self.url)
-        # Timestamp is set immediately following the URL parsing.
+        self.parse_page(url=self.url)
+        # Timestamp is set immediately after url parsing.
         self.timestamp = datetime.now()
-        self._parse_products()
-        self._slice_product_basket_tags()
-        self._make_baskets()
-        self._fill_baskets()
-        self._make_df()
+        # Collate data on products in summary.
+        self.part_name_to_id, self.part_id_to_name = self.parse_products()
+        # Initialize product baskets.
+        self.baskets = self.make_baskets()
+        self.fill_baskets()
+        # Make summary dataframe.
+        self.df = self.make_df(self.baskets)
 
     def display_baskets(self):
         for basket in self.baskets.values():
