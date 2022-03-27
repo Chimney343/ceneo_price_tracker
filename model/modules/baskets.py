@@ -29,4 +29,4 @@ class Basket:
     def show(self):
         print(f"{self.name} basket:")
         for part in self.parts:
-            print('\t', part)
+            print("\t", part)
