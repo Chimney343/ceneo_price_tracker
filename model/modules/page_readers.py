@@ -17,7 +17,8 @@ class CeneoSummaryPageReader:
         self.timestamp = None
         self.url = url
         self.baskets = {}
-        self.unique_parts = set()
+        self.part_name_to_id = {}
+        self.part_id_to_name = {}
 
     def _get_response(self, url: str):
         """
@@ -35,24 +36,21 @@ class CeneoSummaryPageReader:
         if self.response.status_code == 200:
             self.page = BeautifulSoup(self.response.text, "html.parser")
 
-    def _parse_products(self):
+    def parse_products(self):
         """
-        Parses unique products displayed in a Ceneo summary webpage.
+        Parses unique products displayed in a Ceneo summary webpage and stores them as lookups.
         """
-        for tag in self.page.find_all('td'):
+        part_name_to_id = {}
+        for tag in self.page.find_all("td"):
             # Product name is hidden under 'input' and further under 'img' tag.
-            if tag.find('input'):
-                img = tag.find('img', alt=True)
-                self.unique_parts.add(img['alt'])
-
-    def _slice_product_basket_tags(self):
-        """
-        Slices summary tags to a lookup where each unique product is a key and values are HTML `basket` tags relevant to
-        that product.
-        """
-        tags = self.page.find_all("td")
-        product_basket_tags_lookup = dict.fromkeys(self.unique_parts)
-        n_products = len(self.unique_parts)
+            if tag.find("input"):
+                part_name = tag.find("img", alt=True)["alt"]
+                part_id = int(tag.find("input")["value"].replace('"', ""))
+                part_name_to_id[part_name] = part_id
+        part_id_to_name = {
+            part_id: part_name for part_name, part_id in part_name_to_id.items()
+        }
+        return part_name_to_id, part_id_to_name
 
         # Slice the tag list into n_products chunks.
         for i in range(0, len(tags), n_products):
