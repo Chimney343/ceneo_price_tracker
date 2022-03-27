@@ -1,6 +1,6 @@
+from datetime import datetime
 from pathlib import Path
 from typing import List, Union
-from datetime import datetime
 
 import pandas as pd
 from tqdm.autonotebook import tqdm
@@ -50,4 +50,3 @@ class CeneoScraper:
 
         self.df = self._make_result_df()
         self.save_result_df()
-
