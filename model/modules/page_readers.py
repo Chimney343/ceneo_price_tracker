@@ -166,16 +166,29 @@ class CeneoSummaryPageReader:
         df['timestamp'] = self.timestamp
         return df
 
-    def _make_df(self):
+    def make_df(self, baskets=None) -> pd.DataFrame:
         """
         Make a dataframe from existing baskets.
         """
+        if not baskets:
+            baskets = self.baskets
         dfs = []
-        for basket in self.baskets.values():
+        for basket in baskets.values():
             basket.make_df()
-            dfs.append(basket.df)
+            if not basket.df.empty:
+                dfs.append(basket.df)
 
-        df = reduce(lambda left, right: pd.merge(left, right, left_index=True, right_index=True, how='outer'), dfs)
+        df = (
+            reduce(
+                lambda left, right: pd.merge(
+                    left, right, left_index=True, right_index=True, how="outer"
+                ),
+                dfs,
+            )
+            .reset_index()
+            .dropna(subset="index")
+            .set_index("index")
+        )
         df = self._enhance_df(df)
         self.df = df
 
