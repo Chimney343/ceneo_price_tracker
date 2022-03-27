@@ -72,9 +72,34 @@ class CeneoSummaryPageReader:
         :return:
         """
         basket_name = basket_tag["class"][0]
-        basket_offer_keys = [span["class"][0] for span in basket_tag.find_all("span")]
-        basket_offer_values = [span.text for span in basket_tag.find_all("span")]
-        return basket_name, basket_offer_keys, basket_offer_values
+        try:
+            basket_part_id = int(
+                basket_tag.find("a")["data-productid"].replace('"', "")
+            )
+        except (TypeError, KeyError):
+            basket_part_id = None
+        try:
+            basket_part_brand = basket_tag.find("a")["data-brand"].replace('"', "")
+        except (TypeError, KeyError):
+            basket_part_brand = None
+        try:
+            basket_part_category = basket_tag.find("a")["data-gacategoryname"].replace(
+                '"', ""
+            )
+        except (TypeError, KeyError):
+            basket_part_category = None
+        basket_span_tag_keys = [
+            span["class"][0] for span in basket_tag.find_all("span")
+        ]
+        basket_span_tag_values = [span.text for span in basket_tag.find_all("span")]
+        return (
+            basket_name,
+            basket_part_id,
+            basket_part_brand,
+            basket_part_category,
+            basket_span_tag_keys,
+            basket_span_tag_values,
+        )
 
     def _fill_baskets(self):
         """
