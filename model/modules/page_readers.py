@@ -83,29 +83,16 @@ class CeneoCategoryReader(BaseReader):
 
 class CeneoSummaryPageReader(BaseReader):
     def __init__(self, url: str):
-        assert validators.url(url), "Invalid url."
+        super().__init__(url)
         self.timestamp = None
-        self.url = url
         self.baskets = {}
         self.part_name_to_id = {}
         self.part_id_to_name = {}
 
-    def _get_response(self, url: str):
-        """
-        Gets HTTP response from url.
-        :param url:
-        """
-        self.response = requests.get(self.url)
-
-    def parse_page(self, url):
-        """
-        Parses a webpage with BeatifoulSoup.
-        :param url:
-        """
-        self._get_response(url)
-        if self.response.status_code == 200:
-            self.page = BeautifulSoup(self.response.text, "html.parser")
-            self.title = self.page.title.text.split("-")[0].strip()
+    def get_title(self, page=None):
+        if page == None:
+            page = self.page
+        return page.title.text.split("-")[0].strip()
 
     def parse_products(self):
         """
@@ -294,7 +281,8 @@ class CeneoSummaryPageReader(BaseReader):
         """
         Main flow; parses the page and products, initializes and fills the baskets, makes the result dataframe.
         """
-        self.parse_page(url=self.url)
+        self.page = self.parse_page()
+        self.title = self.get_title()
         # Timestamp is set immediately after url parsing.
         self.timestamp = datetime.now()
         # Collate data on products in summary.
