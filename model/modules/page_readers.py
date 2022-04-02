@@ -55,7 +55,33 @@ class CeneoCategoryReader(BaseReader):
         urls[0] = base_url
         return urls
 
-class CeneoSummaryPageReader:
+    def _find_starting_tag(self, main_content_span_tags):
+        for i, tag in enumerate(main_content_span_tags):
+            if tag.find(text="Więcej produktów"):
+                return (i + 1, main_content_span_tags[i + 1])
+
+    def _find_product_tags(self, page):
+        main_content_span_tags = page.find_all('div')[0].find_all('div', class_='main-content')[0].find_all('span')
+        starting_tag = self._find_starting_tag(main_content_span_tags)[0]
+        return main_content_span_tags[starting_tag:]
+
+    def read_page_product_tags(self, tags):
+        for i, tag in enumerate(tags):
+            product_review_tag = tag.find('span', class_='prod-review__qo')
+            if product_review_tag:
+                part_name = product_review_tag.find('a')['title'].split(' o ')[-1]
+                part_id = tags[i + 7]['data-pid']
+                part_price = tags[i + 11].text
+                # TODO: Make this function return something. xD
+                part = Part(name=part_name, price=part_price, part_id=part_id)
+
+    def read(self):
+        self.main_page = self.parse_page(url=self.url)
+        self.n_category_pages = self._find_n_category_pages(page=self.main_page)
+        self.category_urls = self._generate_category_urls(base_url=self.url, n_category_pages=self.n_category_pages)
+        self.product_tags = self._find_product_tags(page=self.main_page)
+
+class CeneoSummaryPageReader(BaseReader):
     def __init__(self, url: str):
         assert validators.url(url), "Invalid url."
         self.timestamp = None
