@@ -10,6 +10,50 @@ from bs4 import BeautifulSoup
 from model.modules.baskets import Basket
 from model.modules.parts import Part
 
+class BaseReader:
+    def __init__(self, url):
+        assert validators.url(url), "Invalid url."
+        self.url = url
+
+    def _get_response(self, url: str):
+        """
+        Gets HTTP response from url.
+        :param url:
+        """
+        self.response = requests.get(self.url)
+
+    def parse_page(self, url=None):
+        """
+        Parses a webpage with BeatifoulSoup.
+        :param url:
+        """
+        if url == None:
+            url = self.url
+        self._get_response(url)
+        if self.response.status_code == 200:
+            return BeautifulSoup(self.response.text, "html.parser")
+
+    def get_title(self, page=None):
+        if page == None:
+            page = self.page
+        return page.title
+
+class CeneoCategoryReader(BaseReader):
+    def __init__(self, main_page_url):
+        super().__init__(main_page_url)
+        self.timestamp = None
+        self.baskets = {}
+        self.n_category_pages = None
+        self.category_urls = None
+
+    def _find_n_category_pages(self, page):
+        n_pages = int(page.find('input', class_="js_pagination-top-input")['data-pagecount'])
+        return n_pages
+
+    def _generate_category_urls(self, base_url, n_category_pages):
+        urls = [f"https://www.ceneo.pl/Karty_graficzne;0020-30-0-0-{i}.htm" for i in range(0, n_category_pages)]
+        urls[0] = base_url
+        return urls
 
 class CeneoSummaryPageReader:
     def __init__(self, url: str):
