@@ -14,7 +14,6 @@ class Part:
         brand: str = None,
         shop: str = None,
         n_opinions: int = None,
-
     ):
         self.name = name
         self.price = self.price_string_to_float(price)
@@ -26,7 +25,6 @@ class Part:
         self.brand = brand
         self.shop = shop
         self.n_opinions = n_opinions
-
 
     def price_string_to_float(self, price):
         return float(price.replace(",", ".").replace(" ", ""))
