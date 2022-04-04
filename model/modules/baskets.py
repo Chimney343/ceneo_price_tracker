@@ -15,10 +15,9 @@ class Basket:
         if self.parts == []:
             self.df = pd.DataFrame(pd.Series(None, name=self.name))
         else:
-            d = {part.name: [part.brand, part.category, part.price] for part in self.parts}
-            df = pd.DataFrame(d).T.rename(columns={0: "brand", 1: "category", 2: self.name})
-            df = df.reset_index()
-            df = df.set_index(["index", "brand", "category"])
+            d = {part.name: part.__dict__ for part in self.parts}
+            df = pd.DataFrame(data=d).T.drop(labels=['name'], axis=1)
+            df['basket_name'] = self.name
             self.df = df
 
     def show(self):
