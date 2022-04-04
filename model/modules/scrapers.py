@@ -40,7 +40,7 @@ class CategoryScraper(BaseScraper):
             reader.read()
             return reader.df
         except Exception as e:
-            traceback.print_exc()
+            traceback.print_exc(e)
             return pd.DataFrame(None)
 
     def _make_result_df(self, df):
@@ -65,7 +65,9 @@ class ProductSetScraper(BaseScraper):
         try:
             reader.read()
             return reader.df
-        except:
+        except Exception as e:
+            logger.critical(f"{url} - scraping error; see traceback beloew.")
+            traceback.print_exc(e)
             return pd.DataFrame(None)
 
     def _make_result_df(self):
