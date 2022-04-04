@@ -21,6 +21,7 @@ class BaseReader:
     def __init__(self, url):
         assert validators.url(url), "Invalid url."
         self.url = url
+        self.status = 'unscraped'
 
     def _get_response(self, url: str):
         """
@@ -275,36 +276,36 @@ class ProductSetReader(BaseReader):
         elif return_type == "price":
             return min(price_to_shop_lookup.keys())
 
-    def _enhance_df(self, df):
-        """
-        Result dataframe feature engineering.
-        :param df:
-        :return:
-        """
-        df["cheapest-shop"] = df.index.to_series().apply(self.find_cheapest_offer, return_type="shop")
-        df["most-expensive-shop"] = df.index.to_series().apply(self.find_most_expensive_offer, return_type="shop")
-        df["cheapest-offer"] = df.index.to_series().apply(self.find_cheapest_offer, return_type="price")
-        df["most-expensive-offer"] = df.index.to_series().apply(self.find_most_expensive_offer, return_type="price")
-        df["timestamp"] = self.timestamp
-        df["title"] = self.title
-        return df
-
     def make_df(self, baskets=None) -> pd.DataFrame:
         """
         Make a dataframe from existing baskets.
         """
         if not baskets:
             baskets = self.baskets
-        dfs = []
+        self.dfs = []
         for basket in baskets.values():
             basket.make_df()
             if not basket.df.empty:
-                dfs.append(basket.df)
+                self.dfs.append(
+                    basket.df.rename(columns={'price': basket.name})
+                    .drop(labels=['basket_name', 'price_format', 'value', 'penny', 'shop'], axis=1)
+                    .reset_index()
+                    .set_index(
+                        ['index', 'brand', 'category', 'part_id', 'n_opinions'],
+                    )
+                )
 
+        self.dfs.sort(key=len, reverse=True)
         df = (
             reduce(
-                lambda left, right: pd.merge(left, right, left_index=True, right_index=True, how="outer"),
-                dfs,
+                lambda left, right: pd.merge(
+                    left,
+                    right,
+                    left_index=True,
+                    right_index=True,
+                    how="outer",
+                ),
+                self.dfs,
             )
             .reset_index()
             .dropna(subset="index")
@@ -313,21 +314,45 @@ class ProductSetReader(BaseReader):
         df = self._enhance_df(df)
         return df
 
+    def status_check(self, df, part_name_to_id):
+        result = all(elem in list(part_name_to_id) for elem in list(df.index))
+        if result:
+            return 'ok'
+        else:
+            return 'missing_products'
+
+    def _enhance_df(self, df):
+        """
+        Result dataframe feature engineering.
+        :param df:
+        :return:
+        """
+        df["cheapest-shop"] = df.index.to_series().apply(self.find_cheapest_offer, return_type="shop")
+        df["most-expensive-shop"] = df.index.to_series().apply(self.find_most_expensive_offer, return_type="shop")
+        df["cheapest-price"] = df.index.to_series().apply(self.find_cheapest_offer, return_type="price")
+        df["most-expensive-price"] = df.index.to_series().apply(self.find_most_expensive_offer, return_type="price")
+        df["timestamp"] = self.timestamp
+        df["title"] = self.title
+        df['status'] = self.status
+        return df
+
     def read(self):
         """
         Main flow; parses the page and products, initializes and fills the baskets, makes the result dataframe.
         """
+        # Staging.
         self.page = self.parse_page(url=self.url)
         self.title = self.get_title(page=self.page)
-        # Timestamp is set immediately after url parsing.
         self.timestamp = datetime.now()
         # Collate data on products in summary.
         self.part_name_to_id, self.part_id_to_name = self.parse_products()
         # Initialize product baskets.
         self.baskets = self.make_baskets()
         self.fill_baskets()
-        # Make summary dataframe.
-        self.df = self.make_df(self.baskets)
+        # Make summary dataframe and enhance the final dataframe.
+        df = self.make_df(self.baskets)
+        self.status = self.status_check(df=df, part_name_to_id=self.part_name_to_id)
+        self.df = self._enhance_df(df=df)
 
     def display_baskets(self):
         for basket in self.baskets.values():
