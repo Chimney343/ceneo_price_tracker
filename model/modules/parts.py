@@ -1,7 +1,7 @@
-from typing import Union
+from typing import Union, List, Tuple
 
 
-class Part:
+class Product:
     def __init__(
         self,
         name: str,
@@ -9,25 +9,29 @@ class Part:
         price_format: str = None,
         value: str = None,
         penny: str = None,
-        part_id: Union[str, int] = None,
+        product_id: Union[str, int] = None,
         category: str = None,
         brand: str = None,
-        shop: str = None,
+        shop_name: str = None,
+        shop_id: Union[str, int] = None,
         n_opinions: int = None,
+        offers: List[Tuple] = [],
     ):
         self.name = name
         self.price = self.price_string_to_float(price)
         self.price_format = price_format
         self.value = value
         self.penny = penny
-        self.part_id = part_id
+        self.part_id = product_id
         self.category = category
         self.brand = brand
-        self.shop = shop
+        self.shop_name = shop_name
+        self.shop_id = shop_id
         self.n_opinions = n_opinions
+        self.offers = offers
 
     def price_string_to_float(self, price):
         return float(price.replace(",", ".").replace(" ", ""))
 
     def __repr__(self):
-        return repr(f"{self.name} / @ {self.shop} / @ {self.price}")
+        return repr(f"{self.name} / @ {self.shop_name} / @ {self.price}")

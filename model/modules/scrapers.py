@@ -8,7 +8,8 @@ import pandas as pd
 from tqdm.autonotebook import tqdm
 
 import SETTINGS
-from model.modules.page_readers import CategoryReader, ProductSetReader
+from model.modules.page_readers import CategoryReader, ProductSetReader, ProductPageReader
+from model.modules.baskets import Basket
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,20 @@ class BaseScraper:
         self.df.to_pickle(path / filename)
 
 
+class BasketScraper(BaseScraper):
+    def __init__(self, basket_name: str, product_lookup: List):
+        super().__init__()
+        self.product_lookup = product_lookup
+        self.basket = Basket(name=basket_name)
+
+    def run(self):
+        for url in self.product_lookup:
+            reader = ProductPageReader(url=url)
+            reader.read()
+            self.basket.add_part(part=reader.product)
+            self.basket.make_df()
+
+
 class CategoryScraper(BaseScraper):
     def __init__(self, url, category_name: str, output_folder: Path = Path.cwd()):
         super().__init__(output_name=category_name, output_folder=output_folder)
@@ -40,7 +55,7 @@ class CategoryScraper(BaseScraper):
             reader.read()
             return reader.df
         except Exception as e:
-            traceback.print_exc()
+            traceback.print_exc(e)
             return pd.DataFrame(None)
 
     def _make_result_df(self, df):
@@ -65,7 +80,9 @@ class ProductSetScraper(BaseScraper):
         try:
             reader.read()
             return reader.df
-        except:
+        except Exception as e:
+            logger.critical(f"{url} - scraping error; see traceback beloew.")
+            traceback.print_exc(e)
             return pd.DataFrame(None)
 
     def _make_result_df(self):
