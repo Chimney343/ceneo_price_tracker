@@ -3,6 +3,7 @@ import logging
 import traceback
 from datetime import datetime
 from functools import reduce
+from typing import Dict
 
 import bs4
 import pandas as pd
@@ -12,9 +13,11 @@ from bs4 import BeautifulSoup
 from tqdm.autonotebook import tqdm
 
 from model.modules.baskets import Basket
-from model.modules.parts import Part
+from model.modules.parts import Product
 
 logger = logging.getLogger(__name__)
+
+from typing import List
 
 
 class BaseReader:
@@ -43,6 +46,73 @@ class BaseReader:
         if page == None:
             page = self.page
         return page.title
+
+
+class ProductPageReader(BaseReader):
+    def __init__(self, url):
+        super().__init__(url)
+        self.url = f"{self.url};0280-0.htm"
+        self.product = None
+
+    def find_offer_tags(self, page):
+        return page.find_all(
+            'div', class_="product-offer__container clickable-offer js_offer-container-click js_product-offer"
+        )
+
+    def get_product_name_from_tag(self, tag):
+        name = tag['data-gaproductname']
+        if '/' in name:
+            return name.split('/')[1]
+        return name
+
+    def get_brand_from_tag(self, tag):
+        return tag['data-brand']
+
+    def get_price_from_tag(self, tag):
+        return tag['data-price']
+
+    def get_shop_name_from_tag(self, tag):
+        return tag['data-shopurl']
+
+    def get_shop_id_from_tag(self, tag):
+        return tag['data-shopurl']
+
+    def get_shop_id_from_tag(self, tag):
+        return tag['data-shop']
+
+    def get_category_from_tag(self, tag):
+        return tag['data-gacategoryname']
+
+    def get_product_id_from_tag(self, tag):
+        return tag['data-productid']
+
+    def read(self):
+        page = self.parse_page(self.url)
+        tags = self.find_offer_tags(page)
+        first_tag = tags[0]
+
+        name = self.get_product_name_from_tag(first_tag)
+        cheapest_price = self.get_price_from_tag(first_tag)
+        product_id = self.get_product_id_from_tag(first_tag)
+        brand = self.get_brand_from_tag(first_tag)
+        category = self.get_category_from_tag(first_tag)
+        cheapest_shop_name = self.get_shop_name_from_tag(first_tag)
+        cheapest_shop_id = self.get_shop_id_from_tag(first_tag)
+        offers = [
+            (i + 1, self.get_shop_name_from_tag(tag), self.get_price_from_tag(tag)) for i, tag in enumerate(tags)
+        ]
+
+        product = Product(
+            name=name,
+            price=cheapest_price,
+            brand=brand,
+            shop_name=cheapest_shop_name,
+            shop_id=cheapest_shop_id,
+            category=category,
+            product_id=product_id,
+            offers=offers,
+        )
+        self.product = product
 
 
 class CategoryReader(BaseReader):
@@ -85,7 +155,7 @@ class CategoryReader(BaseReader):
                 part_name = product_review_tag.find('a')['title'].split(' o ')[-1]
                 part_id = tags[i + 7]['data-pid']
                 part_price = tags[i + 11].text
-                part = Part(name=part_name, price=part_price, part_id=part_id)
+                part = Product(name=part_name, price=part_price, product_id=part_id)
                 parts.append(part)
         return parts
 
@@ -144,7 +214,12 @@ class ProductSetReader(BaseReader):
         self.part_name_to_id = {}
         self.part_id_to_name = {}
 
-    def get_title(self, page=None):
+    def get_title(self, page: bs4.BeautifulSoup = None) -> str:
+        """
+        Returns product set name from the page title.
+        :param page:
+        :return:
+        """
         if page == None:
             page = self.page
         return page.title.text.split("-")[0].strip()
@@ -226,13 +301,13 @@ class ProductSetReader(BaseReader):
                 # Collate information of part included in the basket tag.
                 part_name = self.part_id_to_name.get(basket_part_id)
                 part_data = dict(zip(basket_span_tag_keys, basket_span_tag_values))
-                part = Part(
+                part = Product(
                     name=part_name,
                     price=part_data["price"],
                     brand=basket_part_brand,
                     category=basket_part_category,
-                    part_id=basket_part_id,
-                    shop=part_data["offer-shop-domain"],
+                    product_id=basket_part_id,
+                    shop_name=part_data["offer-shop-domain"],
                     price_format=part_data["price-format"],
                     value=part_data["value"],
                     penny=part_data["penny"],
@@ -249,9 +324,9 @@ class ProductSetReader(BaseReader):
         """
         price_to_shop_lookup = {}
         for basket in self.baskets.values():
-            for basket_part in basket.parts:
+            for basket_part in basket.products:
                 if basket_part.name == part:
-                    price_to_shop_lookup[basket_part.price] = basket_part.shop
+                    price_to_shop_lookup[basket_part.price] = basket_part.shop_name
 
         if return_type == "shop":
             return price_to_shop_lookup[max(price_to_shop_lookup.keys())]
@@ -267,16 +342,16 @@ class ProductSetReader(BaseReader):
         """
         price_to_shop_lookup = {}
         for basket in self.baskets.values():
-            for basket_part in basket.parts:
+            for basket_part in basket.products:
                 if basket_part.name == part:
-                    price_to_shop_lookup[basket_part.price] = basket_part.shop
+                    price_to_shop_lookup[basket_part.price] = basket_part.shop_name
 
         if return_type == "shop":
             return price_to_shop_lookup[min(price_to_shop_lookup.keys())]
         elif return_type == "price":
             return min(price_to_shop_lookup.keys())
 
-    def make_df(self, baskets=None) -> pd.DataFrame:
+    def make_df(self, baskets=List[Basket]) -> pd.DataFrame:
         """
         Make a dataframe from existing baskets.
         """
@@ -288,7 +363,10 @@ class ProductSetReader(BaseReader):
             if not basket.df.empty:
                 self.dfs.append(
                     basket.df.rename(columns={'price': basket.name})
-                    .drop(labels=['basket_name', 'price_format', 'value', 'penny', 'shop'], axis=1)
+                    .drop(
+                        labels=['basket_name', 'price_format', 'value', 'penny', 'shop_name', 'shop_id', 'offers'],
+                        axis=1,
+                    )
                     .reset_index()
                     .set_index(
                         ['index', 'brand', 'category', 'part_id', 'n_opinions'],
@@ -314,16 +392,23 @@ class ProductSetReader(BaseReader):
         df = self._enhance_df(df)
         return df
 
-    def status_check(self, df, part_name_to_id):
-        result = all(elem in list(part_name_to_id) for elem in list(df.index))
+    def status_check(self, df: pd.DataFrame, part_name_to_id: Dict) -> str:
+        """
+        Checks if all products included in the product set have been properly scraped. XXX: Usually if a product wasn't
+        scraped, it's because Ceneo does not provide it's price at the moment.
+        :param df: input dataframe
+        :param part_name_to_id: lookup between part names and their id's.
+        :return: string describing scraping status
+        """
+        result = all(elem in list(df.index) for elem in list(part_name_to_id))
         if result:
             return 'ok'
         else:
             return 'missing_products'
 
-    def _enhance_df(self, df):
+    def _enhance_df(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Result dataframe feature engineering.
+        Enhancing the final dataframe with some features and metadata.
         :param df:
         :return:
         """
@@ -355,5 +440,8 @@ class ProductSetReader(BaseReader):
         self.df = self._enhance_df(df=df)
 
     def display_baskets(self):
+        """
+        Prints on-screen the contents of all baskets.
+        """
         for basket in self.baskets.values():
             basket.show()
