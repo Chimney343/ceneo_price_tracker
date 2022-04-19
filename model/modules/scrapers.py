@@ -8,7 +8,8 @@ import pandas as pd
 from tqdm.autonotebook import tqdm
 
 import SETTINGS
-from model.modules.page_readers import CategoryReader, ProductSetReader
+from model.modules.page_readers import CategoryReader, ProductSetReader, ProductPageReader
+from model.modules.baskets import Basket
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,20 @@ class BaseScraper:
         else:
             filename = f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.pkl"
         self.df.to_pickle(path / filename)
+
+
+class BasketScraper(BaseScraper):
+    def __init__(self, basket_name: str, product_lookup: List):
+        super().__init__()
+        self.product_lookup = product_lookup
+        self.basket = Basket(name=basket_name)
+
+    def run(self):
+        for url in self.product_lookup:
+            reader = ProductPageReader(url=url)
+            reader.read()
+            self.basket.add_part(part=reader.product)
+            self.basket.make_df()
 
 
 class CategoryScraper(BaseScraper):
