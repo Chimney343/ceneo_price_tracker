@@ -8,7 +8,7 @@ class Basket:
         self.name = name
         self.products = []
 
-    def add_part(self, part: Product):
+    def add_product(self, part: Product):
         self.products.append(part)
 
     def make_df(self):
