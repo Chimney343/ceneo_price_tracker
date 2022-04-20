@@ -53,6 +53,7 @@ class ProductPageReader(BaseReader):
         super().__init__(url)
         self.url = f"{self.url};0280-0.htm"
         self.product = None
+        self.status = 'unscraped'
 
     def find_offer_tags(self, page):
         return page.find_all(
@@ -101,7 +102,6 @@ class ProductPageReader(BaseReader):
         offers = [
             (i + 1, self.get_shop_name_from_tag(tag), self.get_price_from_tag(tag)) for i, tag in enumerate(tags)
         ]
-
         product = Product(
             name=name,
             price=cheapest_price,
@@ -112,7 +112,9 @@ class ProductPageReader(BaseReader):
             product_id=product_id,
             offers=offers,
         )
+
         self.product = product
+        self.status = 'ok'
 
 
 class CategoryReader(BaseReader):
@@ -194,7 +196,7 @@ class CategoryReader(BaseReader):
                 try:
                     parts = future.result()
                     for part in parts:
-                        self.basket.add_part(part)
+                        self.basket.add_product(part)
                 except Exception as e:
                     logger.critical(
                         f"Page at {url} returned an unhandled exception during scraping attempt. \n---TRACEBACK---\n"
@@ -313,7 +315,7 @@ class ProductSetReader(BaseReader):
                     penny=part_data["penny"],
                 )
                 # Add part to its relevant basket.
-                self.baskets[basket_name].add_part(part)
+                self.baskets[basket_name].add_product(part)
 
     def find_most_expensive_offer(self, part: str, return_type: str):
         """

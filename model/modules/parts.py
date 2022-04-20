@@ -16,6 +16,7 @@ class Product:
         shop_id: Union[str, int] = None,
         n_opinions: int = None,
         offers: List[Tuple] = [],
+        status: str = 'ok',
     ):
         self.name = name
         self.price = self.price_string_to_float(price)
@@ -29,6 +30,7 @@ class Product:
         self.shop_id = shop_id
         self.n_opinions = n_opinions
         self.offers = offers
+        self.status = status
 
     def price_string_to_float(self, price):
         return float(price.replace(",", ".").replace(" ", ""))
